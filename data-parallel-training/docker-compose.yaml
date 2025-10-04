@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  coordinator:
+    build: .
+    container_name: coordinator
+    command: >
+      python coordinator.py
+      --num-workers 4
+      --epochs 25
+      --lr 0.01
+      --l2 0.0
+    volumes:
+      - ./data:/app/data
+    networks:
+      - training-net
+    ports:
+      - "5557:5557"   # task channel
+      - "5558:5558"   # result channel
+
+  worker1:
+    build: .
+    container_name: worker1
+    command: python worker.py
+    networks:
+      - training-net
+    depends_on:
+      - coordinator
+
+  worker2:
+    build: .
+    container_name: worker2
+    command: python worker.py
+    networks:
+      - training-net
+    depends_on:
+      - coordinator
+
+  worker3:
+    build: .
+    container_name: worker3
+    command: python worker.py
+    networks:
+      - training-net
+    depends_on:
+      - coordinator
+
+  worker4:
+    build: .
+    container_name: worker4
+    command: python worker.py
+    networks:
+      - training-net
+    depends_on:
+      - coordinator
+
+networks:
+  training-net:
