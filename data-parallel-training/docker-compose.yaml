@@ -7,9 +7,8 @@ services:
     command: >
       python coordinator.py
       --num-workers 4
-      --epochs 25
-      --lr 0.01
-      --l2 0.0
+      --epochs 10
+      --lr 0.1
     volumes:
       - ./data:/app/data
     networks:

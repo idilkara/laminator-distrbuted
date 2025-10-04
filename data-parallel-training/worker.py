@@ -17,28 +17,24 @@ class Net(nn.Module):
         x = F.relu(self.fc1(x))
         return torch.sigmoid(self.fc2(x))
 
+from models import LinearNet
+
 def compute_grad_and_loss(task):
     X = torch.tensor(task["X"], dtype=torch.float32)
-    y = torch.tensor(task["y"], dtype=torch.float32).unsqueeze(1)
-    w_state = task["weights"]
+    y = torch.tensor(task["y"], dtype=torch.long)  # classification labels
+    state_dict = task["weights"]
 
-    # Build model & load weights
-    model = Net(input_dim=X.shape[1])
-    model.load_state_dict(w_state)
+    model = LinearNet([128, 256, 128])
+    model.load_state_dict(state_dict)
+    model.train()
 
-    # Loss
-    criterion = nn.BCELoss()
+    criterion = nn.CrossEntropyLoss()
+    outputs = model(X)
+    loss = criterion(outputs, y)
 
-    # Forward
-    y_pred = model(X)
-    loss = criterion(y_pred, y)
-
-    # Backward
-    model.zero_grad()
     loss.backward()
 
-    # Collect gradients
-    grads = {name: p.grad.numpy() for name, p in model.named_parameters()}
+    grads = {name: p.grad.clone().numpy() for name, p in model.named_parameters()}
     return grads, float(loss.item()), X.shape[0]
 
 def main():
@@ -50,6 +46,7 @@ def main():
 
     while True:
         task = receiver.recv_pyobj()
+        print("Received task from the coordinator",flush=True)
         grads, loss, n = compute_grad_and_loss(task)
         time.sleep(random.uniform(0.05, 0.2))
         sender.send_pyobj({
