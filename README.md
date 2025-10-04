@@ -1,1 +1,1 @@
-# laminator-distrbuted
+# CS 848 Project
