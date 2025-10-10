@@ -73,11 +73,12 @@ def batches_for_workers(X, y, num_workers, rng):
         yield wid, X[chunk_idx], y[chunk_idx]
 
 
-def send_task(sender, worker_id, Xb, yb, model, lr, epoch):
+def send_task(sender, worker_id, Xb, yb, model_string, model, lr, epoch):
     task = {
         "worker_id": worker_id,
         "X": Xb.astype(np.float32).tolist(),
         "y": yb.astype(np.float32).tolist(),
+        "architecture": model_string,
         "weights": model.state_dict(),   # <-- full NN state 
         "lr": float(lr),
         "epoch": int(epoch),
@@ -122,13 +123,14 @@ def train(cfg: Config):
 
     # Initialize model
     model = LinearNet([128, 256, 128])   # you can tweak sizes
+    model_string = "LinearNet:[128, 256, 128]" # For larger models maybe assume they have models.py file? 
 
     print(f"Coordinator started with {cfg.num_workers} workers. Data: X={X_train.shape}, y={y_train.shape}")
 
     for epoch in range(cfg.epochs):
         t0 = time.time()
         for wid, Xb, yb in batches_for_workers(X_train, y_train, cfg.num_workers, rng):
-            send_task(task_out, wid, Xb, yb, model, cfg.lr, epoch)
+            send_task(task_out, wid, Xb, yb, model_string, model, cfg.lr, epoch)
 
         avg_grads, avg_loss = recv_results(results_in, cfg.num_workers)
 

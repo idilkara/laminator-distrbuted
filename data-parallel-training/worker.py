@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import zmq
 import time, random
+import np
 
 TASK_ENDPOINT = "tcp://coordinator:5557"
 RESULT_ENDPOINT = "tcp://coordinator:5558"
@@ -19,12 +20,38 @@ class Net(nn.Module):
 
 from models import LinearNet
 
+
+def parse_model_string(model_string):
+    blocks = model_string.split(';')
+    for block in blocks:
+        split = block.split(':')
+        layer_name = split[0]
+        # translate layer name into nn.layer
+        layer_function = None #nn.Linear
+        if(layer_name=="LinearNet"):
+            layer_function=nn.Linear
+        layer_sizes = np.from_string(split[1].strip('[]'), dtype=int, sep=',')
+        layers = []
+        for i in range(len(layer_sizes) - 1):
+            in_features = layer_sizes[i]
+            out_features = layer_sizes[i + 1]
+            layers.append(layer_function(in_features, out_features))
+
+    return nn.Sequential(*layers)
+
+
 def compute_grad_and_loss(task):
     X = torch.tensor(task["X"], dtype=torch.float32)
     y = torch.tensor(task["y"], dtype=torch.long)  # classification labels
     state_dict = task["weights"]
+    model_string = task["architecture"]
 
-    model = LinearNet([128, 256, 128])
+    # hash architecture
+    # hash initial weights
+    # hash training data
+
+    # model = LinearNet([128, 256, 128]) # Have this be sent over as well. AS binary object or text based (like JSON or XML) and built on worker end
+    model=parse_model_string(model_string)
     model.load_state_dict(state_dict)
     model.train()
 
@@ -35,7 +62,10 @@ def compute_grad_and_loss(task):
     loss.backward()
 
     grads = {name: p.grad.clone().numpy() for name, p in model.named_parameters()}
-    return grads, float(loss.item()), X.shape[0]
+
+    # hash grads
+
+    return grads, float(loss.item()), X.shape[0] # also return hashes
 
 def main():
     ctx = zmq.Context()
@@ -55,6 +85,9 @@ def main():
             "loss": loss,
             "n": n,
         })
+        # After the computation is complete, a hash of the output is incorporated into the user data field of an SGX report, which is then
+        # used to obtain a DCAP quote [ 28 ] that can be verified by remote parties. This output takes the form of a JSON string representing
+        # a fragment of the model card metadata4, where a model is named with the hash of its file.
 
 if __name__ == "__main__":
     main()
